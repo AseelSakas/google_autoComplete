@@ -15,10 +15,8 @@ class TrieNode:
         self.char = char
         self.data = [PositionData(file_path, line_num)]
 
-
         # whether this can be the end of a word
         self.is_word_end = False
-
 
         #  to add later
         self.is_sentence_end = False
@@ -50,7 +48,7 @@ class Trie(object):
         self.output =[]
         self.scores = []
 
-    def insert(self, word, line_num, file_location, offset=0):
+    def insert(self, word, line_num, file_location):
         """Insert a word into the trie"""
         node = self.root
 
@@ -84,8 +82,8 @@ class Trie(object):
             #     #TODO: make sure this works
 
         # Mark the end of a word
-        node.is_word_end = True
-        node.is_sentence_end = True
+        # node.is_word_end = True
+        # node.is_sentence_end = True
          # Increment the counter to indicate that we see this word once more
         node.appearances += 1
        
@@ -145,38 +143,43 @@ class Trie(object):
     #     return sorted(self.output, key=lambda x: x["score"], reverse=True)
 
 
-    def query(self, phrase, start_node=None, idx =0, score =0, fixed_letter= False, full_match_count = 0):
+    def query(self, phrase,top, start_node=None, idx =0, score =0, fixed_letter= False, full_match_count = 0):
 
         node = start_node
+        if len(self.scores) >= top:
+            return
         if idx == len(phrase):
             if node != self.root:
-                self.scores.append({"node": node, "score": score})
+                for position in node.data :
+                    self.scores.append({"position": position, "score": score})
             return
 
         # for i in range(idx, len(phrase)):
         char = phrase[idx]
         if char in node.children:
             # full match
-            self.query(phrase, node.children[char], idx + 1, score + 2)
-        if not fixed_letter and len(self.scores) <= 5:  #TODO: change to if
+            self.query(phrase, top, node.children[char], idx + 1, score + 2)
+        if not fixed_letter:  #TODO: change to if
             # exchange
             exchange_tax = preparator_utilities.get_exchange_tax(idx)
             deletion_tax = preparator_utilities.get_deletion_tax(idx)
 
             #letter_insirtion
-            self.query(phrase, node, idx + 1, score - deletion_tax, True)
+            self.query(phrase, top, node, idx + 1, score - deletion_tax, True)
 
             for char in node.children.keys():
                 # letter_exchange
-                self.query(phrase, node.children[char], idx + 1, score - exchange_tax, True)
+                self.query(phrase, top,  node.children[char], idx + 1, score - exchange_tax, True)
                 # letter_deletion
-                self.query(phrase, node.children[char], idx, score - deletion_tax, True)
+                self.query(phrase, top, node.children[char], idx, score - deletion_tax, True)
         return
 
     #search in suffixTrie and save each match with apprpoiat score in self.score list, sorted
-    def get_sugg_from_trie(self, phrase,top=None):
-        self.query(phrase, self.root)
-        return sorted(self.scores, key=lambda x: x["score"])
+    def get_sugg_from_trie(self, phrase,top=5):
+        self.query(phrase,top, self.root)
+        # return sorted(self.scores, key=lambda x: x["score"],)
+        self.scores = self.scores[:top]
+        return self.scores
 
     # def optimize(self,x):
     #     pass
@@ -206,7 +209,8 @@ def get_suggestions_lines(suggDictList):
     return suggestions
 
 def get_suggestions(tree, searchPhrase, top=None):
-    match_results = tree.get_sugg_from_trie(searchPhrase)
+    clean_searchPhrase = preparator_utilities.prepare_line(searchPhrase)
+    match_results = tree.get_sugg_from_trie(clean_searchPhrase)
     get_suggestions_lines(match_results)
     return set(get_suggestions_lines(tree.scores))
 

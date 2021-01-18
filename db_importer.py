@@ -17,27 +17,29 @@ class DB_importer:
             line_num += 1
         file1.close()
 
-    def get_line_from_file(self,positions):
+    def get_line_from_file(self,position):
         results = []
-        for position in positions:
-            file_location = position.file_path
-            file1 = open(file_location, 'r')
-            lines = file1.readlines()
-            line_index = position.line_index
-            file1.close()
-            if line_index >= len(lines):
-                raise Exception("wrong line_index or wrong file_path")
-            results.append(lines[line_index])
-        return results
+        file_location = position.file_path
+        file1 = open(file_location, 'r')
+        lines = file1.readlines()
+        line_index = position.line_index
+        file1.close()
+        if line_index >= len(lines):
+            raise Exception("wrong line_index or wrong file_path")
+        return lines[line_index]
+            # results.append(lines[line_index])
 
     def get_suggestions_lines(self, suggDictList):
         suggestions = []
         for suggDict in suggDictList:
-            positions = suggDict["node"].data
-            suggestions.extend(self.get_line_from_file(positions))
+            position = suggDict["position"]
+            suggestions.append(self.get_line_from_file(position))
         return suggestions
 
     def get_suggestions(self, searchPhrase, top=None):
         match_results = self.suffixTrie.get_sugg_from_trie(searchPhrase)
         self.get_suggestions_lines(match_results)
-        return set(self.get_suggestions_lines(self.suffixTrie.scores))
+        res = set(self.get_suggestions_lines(self.suffixTrie.scores))
+        self.suffixTrie.scores = []
+
+        return res
