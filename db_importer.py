@@ -1,22 +1,10 @@
 from preparator_utilities import preparator_utilities
-
+from trie_data_structure import Trie
 
 class DB_importer:
 
-    def __init__(self, i_tri_to_import_to):
-        self.import_to = i_tri_to_import_to
-
-    def mock_import_from_file(self):
-        example_text = "{}\n{}\n{}\n{}\n{}\n{}\n".format("i want", "I wAnt To Be Happy",
-                                                         "nothing is Better, than now",
-                                                         "what comes up must go down",
-                                                         "i want to be happy together",
-                                                         "i want banana"
-                                                         )
-        text_seperated_by_newline = example_text.split('\n')
-        for line in text_seperated_by_newline:
-            clean_line = preparator_utilities.prepare_line(line)
-            self.import_to.insert(clean_line)
+    def __init__(self):
+        self.suffixTrie = Trie()
 
     def import_from_file(self, file_location):
         file1 = open(file_location, 'r')
@@ -24,8 +12,32 @@ class DB_importer:
         line_num = 0
         while line:
             clean_line = preparator_utilities.prepare_line(line)
-            self.import_to.insert(clean_line, line_num, file_location)
+            self.suffixTrie.insert(clean_line, line_num, file_location)
             line = file1.readline()
             line_num += 1
-
         file1.close()
+
+    def get_line_from_file(self,positions):
+        results = []
+        for position in positions:
+            file_location = position.file_path
+            file1 = open(file_location, 'r')
+            lines = file1.readlines()
+            line_index = position.line_index
+            file1.close()
+            if line_index >= len(lines):
+                raise Exception("wrong line_index or wrong file_path")
+            results.append(lines[line_index])
+        return results
+
+    def get_suggestions_lines(self, suggDictList):
+        suggestions = []
+        for suggDict in suggDictList:
+            positions = suggDict["node"].data
+            suggestions.extend(self.get_line_from_file(positions))
+        return suggestions
+
+    def get_suggestions(self, searchPhrase, top=None):
+        match_results = self.suffixTrie.get_sugg_from_trie(searchPhrase)
+        self.get_suggestions_lines(match_results)
+        return set(self.get_suggestions_lines(self.suffixTrie.scores))
