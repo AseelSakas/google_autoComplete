@@ -32,7 +32,7 @@ class DB_importer:
     def get_suggestions_lines(self, suggDictList):
         suggestions = []
         for suggDict in suggDictList:
-            position = suggDict["position"]
+            position = suggDict[0]
             suggestions.append(self.get_line_from_file(position))
         return suggestions
 
