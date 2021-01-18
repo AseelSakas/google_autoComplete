@@ -1,53 +1,11 @@
+from db_importer import DB_importer
+EXCHANGE_TAX = 6
+
 class PositionData:
     def __init__(self, file_path, line):
         self.file_path = file_path
-        self.line = line
+        self.line_index = line
 
-class preparator_utilities:
-    
-    @staticmethod    
-    def prepare_line(i_line):
-        i_line.strip()
-        letters_and_spaces= ''.join(letter for letter in i_line if (letter.isalnum() or  letter ==' '))
-        letters_and_spaces=letters_and_spaces.lower()
-        return letters_and_spaces
-
-    @staticmethod
-    def is_separator(char):
-        return (not char.isalnum())
-
-
-
-import os
-import sys
-class DB_importer:
-
-    def __init__(self, i_tri_to_import_to):
-        self.import_to = i_tri_to_import_to
-
-    def mock_import_from_file(self):
-        example_text ="{}\n{}\n{}\n{}\n{}\n{}\n".format("i want","I wAnt To Be Happy",
-                                                    "nothing is Better, than now",
-                                                    "what comes up must go down",
-                                                    "i want to be happy together",
-                                                    "i want banana"
-                                                    )
-        text_seperated_by_newline = example_text.split('\n')
-        for line in text_seperated_by_newline:
-            clean_line = preparator_utilities.prepare_line(line)
-            self.import_to.insert(clean_line)
-
-    def import_from_file(self,file_location):
-        file1 = open(file_location, 'r') 
-        line = file1.readline()
-        line_num = 0
-        while line: 
-            clean_line = preparator_utilities.prepare_line(line)
-            self.import_to.insert(clean_line, line_num, file_location)
-            line = file1.readline()
-            line_num += 1
-  
-        file1.close() 
 
 class TrieNode:
     """A node in the trie structure"""
@@ -60,8 +18,6 @@ class TrieNode:
 
         # whether this can be the end of a word
         self.is_word_end = False
-
-
 
 
         #  to add later
@@ -94,6 +50,7 @@ class Trie(object):
         The root node does not store any character
         """
         self.root = TrieNode("")
+        self.output =[]
 
     def insert(self, word, line_num, file_location, offset=0):
         """Insert a word into the trie"""
@@ -145,20 +102,25 @@ class Trie(object):
         """
         if node.is_sentence_end:
             for position in node.data:
-                self.output.append((prefix + node.char, score, position.line))
+                self.output.append({"prefix": prefix + node.char,
+                                    "score": score,
+                                    "position": position})
 
         for child in node.children.values():
             self.dfs(child, prefix + node.char, score)
 
-    def query(self, x):
+    def query(self, x, start_node=None):
         """Given an input (a prefix), retrieve all words stored in
         the trie with that prefix, sort the words by the number of
         times they have been inserted
         """
         # Use a variable within the class to keep all possible outputs
         # As there can be more than one word with such prefix
-        self.output = []
-        node = self.root
+        self.output = []  #TODO:convert to set of tuples (file_path,line_idx)
+        if not start_node:
+            node = self.root
+        else:
+            node = start_node
 
         # Check if the prefix is in the trie
         score = 0
@@ -167,17 +129,41 @@ class Trie(object):
                 node = node.children[char]
                 score += 2
             else:
+                # exchange
+
 
 
                 # cannot found the prefix, return empty list, try changing letter and
                 return []
 
         # Traverse the trie to get all candidates
-        self.dfs(node, x[:-1], score)
-
+        # self.dfs(node, x[:-1], score)
+        # if node.is_sentence_end:
+        for position in node.data:
+            self.output.append({"prefix": x[:-1] + node.char,
+                                "score": score,
+                                "position": position})
         # Sort the results in reverse order and return
-        return sorted(self.output, key=lambda x: x[0], reverse=True)
+        return sorted(self.output, key=lambda x: x["score"], reverse=True)
 
+
+    # def query(self, phrase, start_node=None,exchange_count=0 ,score =0):
+    #
+    #     if not start_node:
+    #         node = self.root
+    #     else:
+    #         node = start_node
+    #
+    #     for i in  range(len(phrase)):
+    #         char = phrase[i]
+    #         if char in node.children:
+    #             node = node.children[char]
+    #             self.query(phrase[i+1:],node,exchange_count,score+2)
+    #         else:
+    #             # exchange
+    #             for child in node.children:
+    #                 self.query(phrase[i + 1:], node,exchange_count+1, score - ((-(exchange_count+1)) % EXCHANGE_TAX))
+    #     return node
 
     def optimize(self,x):
         pass
@@ -185,9 +171,36 @@ class Trie(object):
             # if there is a strand for only 1 word we can take the word instead of the letters
             #have the children in priority queue depending on the max_appearnaces
 
+def get_line_from_file(position):
+    file_location = position.file_path
+    file1 = open(file_location, 'r')
+    lines = file1.readlines()
+    line_index = position.line_index
+    file1.close()
+    if line_index >= len(lines):
+        raise Exception("wrong line_index or wrong file_path")
+    return lines[line_index]
+
+def get_suggestions_lines(suffixes):
+    suggestions = []
+    for suffix in suffixes:
+        position= suffix["position"]
+        suggestions.append(get_line_from_file(position))
+    return suggestions
+
+def get_suggestions(sentence, top=None):
+    suffixes = tree.query(sentence)
+    return set(get_suggestions_lines(suffixes))
+
+
+
+
+
+
+
 tree = Trie()
 importer = DB_importer(tree)
 importer.import_from_file("words.txt")
-print(tree.query("want"))
+print(get_suggestions("want"))
 print("done")
 
